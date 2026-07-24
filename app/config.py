@@ -1,4 +1,5 @@
 from functools import lru_cache
+from pathlib import Path
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -23,6 +24,12 @@ class Settings(BaseSettings):
 
     simulation_enabled: bool = True
     simulation_interval_seconds: float = 5.0
+
+    energyplus_executable: str | None = None
+    energyplus_idf_path: Path | None = None
+    energyplus_weather_path: Path | None = None
+    energyplus_output_dir: Path = Path("var/energyplus")
+    energyplus_zone_name: str = "main"
 
     mcp_host: str = "0.0.0.0"
     mcp_port: int = 8001

@@ -1,8 +1,9 @@
 import pytest
 
 from app.schemas.telemetry import Setpoints
-from app.simulation.energyplus_runner import EnergyPlusRunner
+from app.simulation.energyplus_runner import EnergyPlusRunner, EnergyPlusSubprocessBackend
 from app.simulation.state import BuildingState
+from tests.fakes import FakeEnergyPlusBackend
 
 
 @pytest.fixture
@@ -12,7 +13,7 @@ def isolated_state():
 
 @pytest.fixture
 def runner(isolated_state):
-    return EnergyPlusRunner(state=isolated_state, interval_seconds=0.1)
+    return EnergyPlusRunner(state=isolated_state, interval_seconds=0.1, backend=FakeEnergyPlusBackend())
 
 
 def test_tick_once_generates_expected_fields(runner, isolated_state):
@@ -40,3 +41,45 @@ def test_setpoints_influence_simulation(isolated_state, runner):
 def test_invalid_setpoint_range_rejected_by_schema():
     with pytest.raises(ValueError):
         Setpoints(hvac_temperature_c=10.0)
+
+
+def test_load_frames_from_eso_and_meter_files(tmp_path):
+    eso_path = tmp_path / "eplusout.eso"
+    meter_path = tmp_path / "eplusout.mtr"
+    eso_path.write_text(
+        """Program Version,EnergyPlus, Version 26.1.0, YMD=2026.07.25 01:44
+62,1,ZONE ONE,Zone Mean Air Temperature [C] !Hourly
+63,1,ZONE ONE,Zone Air Relative Humidity [%] !Hourly
+64,1,ZONE ONE,Zone People Occupant Count [] !Hourly
+End of Data Dictionary
+2,1,7,21,0,1,0.00,60.00,SummerDesignDay
+62,21.5
+63,10.0
+64,20.0
+2,1,7,21,0,2,0.00,60.00,SummerDesignDay
+62,22.1
+63,11.0
+64,21.0
+""",
+        encoding="utf-8",
+    )
+    meter_path.write_text(
+        """Program Version,EnergyPlus, Version 26.1.0, YMD=2026.07.25 01:44
+24,1,ExteriorLights:Electricity [J] !Hourly
+End of Data Dictionary
+2,1,7,21,0,1,0.00,60.00,SummerDesignDay
+24,1800000.0
+2,1,7,21,0,2,0.00,60.00,SummerDesignDay
+24,3600000.0
+""",
+        encoding="utf-8",
+    )
+
+    backend = EnergyPlusSubprocessBackend(zone="main")
+    frames = list(backend._load_frames_from_eso(eso_path, meter_path))
+
+    assert len(frames) == 2
+    assert frames[0].temperature_c == pytest.approx(21.5)
+    assert frames[0].humidity_pct == pytest.approx(10.0)
+    assert frames[0].occupancy_pct == pytest.approx(20.0)
+    assert frames[0].power_kw == pytest.approx(0.5)

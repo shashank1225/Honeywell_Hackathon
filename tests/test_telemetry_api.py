@@ -5,6 +5,7 @@ from app.config import get_settings
 from app.main import create_app
 from app.simulation.energyplus_runner import EnergyPlusRunner
 from app.simulation.state import BuildingState
+from tests.fakes import FakeEnergyPlusBackend
 
 
 @pytest.fixture
@@ -13,7 +14,7 @@ def client(monkeypatch):
     get_settings.cache_clear()
 
     state = BuildingState()
-    runner = EnergyPlusRunner(state=state, interval_seconds=0.1)
+    runner = EnergyPlusRunner(state=state, interval_seconds=0.1, backend=FakeEnergyPlusBackend())
     runner.tick_once()
 
     monkeypatch.setattr("app.api.routes.telemetry.building_state", state)

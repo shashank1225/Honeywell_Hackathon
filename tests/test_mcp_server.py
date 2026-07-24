@@ -3,11 +3,12 @@ import json
 from app.mcp.server import adjust_ventilation, current_setpoints, current_telemetry, set_hvac_temperature
 from app.simulation.energyplus_runner import EnergyPlusRunner
 from app.simulation.state import BuildingState
+from tests.fakes import FakeEnergyPlusBackend
 
 
 def test_mcp_resources_and_tools_use_shared_state(monkeypatch):
     state = BuildingState()
-    runner = EnergyPlusRunner(state=state, interval_seconds=0.1)
+    runner = EnergyPlusRunner(state=state, interval_seconds=0.1, backend=FakeEnergyPlusBackend())
     runner.tick_once()
 
     monkeypatch.setattr("app.mcp.server.building_state", state)

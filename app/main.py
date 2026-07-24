@@ -13,11 +13,12 @@ from app.simulation.energyplus_runner import get_energyplus_runner
 async def lifespan(app: FastAPI):
     """Application startup and shutdown hooks."""
     settings = get_settings()
-    runner = get_energyplus_runner()
+    runner = None
     if settings.simulation_enabled:
+        runner = get_energyplus_runner()
         await runner.start()
     yield
-    if settings.simulation_enabled:
+    if runner is not None:
         await runner.stop()
 
 
