@@ -16,7 +16,8 @@ class Settings(BaseSettings):
     app_version: str = "0.1.0"
     debug: bool = False
 
-    database_url: str = "postgresql://aabos:aabos@localhost:5432/aabos"
+    # Use 127.0.0.1 to prefer IPv4 so macOS localhost IPv6 Postgres isn't used
+    database_url: str = "postgresql://aabos:aabos@127.0.0.1:5433/aabos"
     kafka_bootstrap_servers: str = "localhost:9092"
 
 
