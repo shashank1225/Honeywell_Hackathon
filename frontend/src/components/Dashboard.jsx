@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import MetricCard from "./MetricCard.jsx";
 import SetpointPanel from "./SetpointPanel.jsx";
+import StrategyPanel from "./StrategyPanel.jsx";
 
 const WS_URL = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/telemetry/stream`;
 
@@ -73,6 +74,7 @@ export default function Dashboard() {
       </section>
 
       <SetpointPanel setpoints={setpoints} onUpdated={refreshSetpoints} />
+      <StrategyPanel />
     </main>
   );
 }

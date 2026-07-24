@@ -62,3 +62,50 @@ class SafetyValidationResult(BaseModel):
     accepted: bool
     reasons: list[str] = []
     safe_setpoints: Setpoints | None = None
+
+
+class GoalType(StrEnum):
+    """Strategic objectives that can be translated into operating policies."""
+
+    ENERGY_REDUCTION = "energy_reduction"
+    COMFORT = "comfort"
+    CARBON_REDUCTION = "carbon_reduction"
+
+
+class StrategicGoal(BaseModel):
+    """A human or autonomous objective for the slow strategic loop."""
+
+    objective: GoalType
+    target_percent: float = Field(default=10.0, ge=1.0, le=50.0)
+    carbon_intensity_gco2_kwh: float | None = Field(default=None, ge=0.0)
+
+
+class AutomationEpisode(BaseModel):
+    """Observed outcome retained as experience for future policy selection."""
+
+    timestamp: datetime
+    policy: OperatingPolicy
+    reward: float = Field(ge=-1.0, le=1.0)
+    energy_kwh: float = Field(ge=0.0)
+    comfort_score: float = Field(ge=0.0, le=1.0)
+    carbon_kg: float = Field(ge=0.0)
+    confidence: float = Field(ge=0.0, le=1.0)
+
+
+class PolicyPerformance(BaseModel):
+    """Explainable learned preference for a named operating policy."""
+
+    policy: OperatingPolicy
+    average_reward: float
+    observations: int
+
+
+class StrategicPlan(BaseModel):
+    """A slow-loop recommendation which must still pass the Safety Sentinel."""
+
+    goal: StrategicGoal
+    selected_policy: OperatingPolicy
+    confidence: float = Field(ge=0.0, le=1.0)
+    proposed_setpoints: Setpoints
+    explanation: list[str]
+    policy_performance: list[PolicyPerformance]
