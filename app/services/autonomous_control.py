@@ -10,6 +10,7 @@ from app.schemas.telemetry import BuildingTelemetry, ComfortFeedback, OperatingP
 from app.services.control_gateway import apply_safe_setpoints
 from app.services.decision_engine import POLICY_SETPOINTS
 from app.services.self_healing import self_healing_loop
+from app.services.policy_handoff import PolicyHandoffQueue, policy_handoff_queue
 from app.simulation.state import BuildingState, building_state
 
 
@@ -25,8 +26,9 @@ class AutonomousControlStatus:
 class AutonomousControlLoop:
     """Telemetry → decision → safety gateway → next EnergyPlus cycle."""
 
-    def __init__(self, state: BuildingState | None = None) -> None:
+    def __init__(self, state: BuildingState | None = None, handoffs: PolicyHandoffQueue | None = None) -> None:
         self._state = state or building_state
+        self._handoffs = handoffs or policy_handoff_queue
         self._status = AutonomousControlStatus()
         self._lock = threading.RLock()
 
@@ -54,14 +56,20 @@ class AutonomousControlLoop:
                         self._status.last_action = "Comfort fallback activated after measured shortfall"
                         return self.status()
 
-            policy = OperatingPolicy.ENERGY_SAVER if telemetry.power_kw >= settings.autonomous_power_threshold_kw else OperatingPolicy.BALANCED
+            handoff = self._handoffs.consume()
+            policy = handoff.policy if handoff else (
+                OperatingPolicy.ENERGY_SAVER if telemetry.power_kw >= settings.autonomous_power_threshold_kw else OperatingPolicy.BALANCED
+            )
             proposal = POLICY_SETPOINTS[policy]
             result = apply_safe_setpoints(self._state, proposal, policy=policy)
             if result.accepted:
                 self_healing_loop.register_applied_policy(policy, current)
                 self._status.active_policy = policy
                 self._status.fallback_activated = False
-                self._status.last_action = f"Autonomously selected {policy.value} from measured power {telemetry.power_kw:.2f} kW"
+                self._status.last_action = (
+                    f"LLM recommendation accepted by Safety Sentinel: {policy.value}. {handoff.rationale}"
+                    if handoff else f"Autonomously selected {policy.value} from measured power {telemetry.power_kw:.2f} kW"
+                )
             else:
                 self._status.last_action = f"Safety Sentinel rejected {policy.value}: {'; '.join(result.reasons)}"
             return self.status()

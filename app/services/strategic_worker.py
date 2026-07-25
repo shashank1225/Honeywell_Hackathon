@@ -11,6 +11,7 @@ from app.config import get_settings
 from app.schemas.telemetry import StrategicGoal, StrategicJob, StrategicJobStatus
 from app.services.strategic_reasoner import strategic_reasoner
 from app.services.ollama_client import OllamaStrategicClient, OllamaUnavailable
+from app.services.policy_handoff import PolicyHandoff, policy_handoff_queue
 from app.services.telemetry_aggregation import TelemetryWindowAggregator, telemetry_window_aggregator
 
 
@@ -71,6 +72,7 @@ class StrategicWorkQueue:
                     )
                     llm_used = True
                     fallback_used = False
+                    policy_handoff_queue.publish(PolicyHandoff(policy=recommendation.policy, rationale=recommendation.rationale))
                 except OllamaUnavailable:
                     plan = strategic_reasoner.create_plan_from_summary(job.goal, summary)
                     llm_used = False
