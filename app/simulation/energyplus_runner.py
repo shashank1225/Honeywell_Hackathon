@@ -570,6 +570,7 @@ class EnergyPlusRunner:
         self._task: asyncio.Task[None] | None = None
         self._backend = backend or EnergyPlusSubprocessBackend(zone=zone)
         self._telemetry_handler = None
+        self._last_error: str | None = None
 
     @property
     def is_running(self) -> bool:
@@ -609,7 +610,13 @@ class EnergyPlusRunner:
         return publish_telemetry_event(payload)
 
     async def run_loop(self) -> None:
-        """Background loop used by FastAPI lifespan startup."""
+        """Background loop used by FastAPI lifespan startup.
+
+        A failed EnergyPlus subprocess must not take down the autonomous
+        service.  The next cycle retries with the current last-known-safe
+        setpoints, which also lets the service recover if another local
+        process briefly held the output directory.
+        """
         self._running = True
         logger.info(
             "EnergyPlus simulation started (interval=%ss, zone=%s)",
@@ -618,7 +625,16 @@ class EnergyPlusRunner:
         )
         try:
             while self._running:
-                await asyncio.to_thread(self.tick_once)
+                try:
+                    await asyncio.to_thread(self.tick_once)
+                    self._last_error = None
+                except Exception as exc:
+                    self._last_error = str(exc)
+                    logger.exception(
+                        "EnergyPlus simulation cycle failed; retrying in %ss: %s",
+                        self._interval_seconds,
+                        exc,
+                    )
                 await asyncio.sleep(self._interval_seconds)
         finally:
             logger.info("EnergyPlus simulation stopped")

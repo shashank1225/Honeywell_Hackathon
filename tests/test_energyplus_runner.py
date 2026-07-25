@@ -1,3 +1,5 @@
+import asyncio
+
 import pytest
 
 from app.schemas.telemetry import Setpoints
@@ -41,6 +43,35 @@ def test_setpoints_influence_simulation(isolated_state, runner):
 def test_invalid_setpoint_range_rejected_by_schema():
     with pytest.raises(ValueError):
         Setpoints(hvac_temperature_c=10.0)
+
+
+def test_runner_recovers_after_a_transient_energyplus_failure(isolated_state):
+    class FlakyBackend(FakeEnergyPlusBackend):
+        def __init__(self) -> None:
+            super().__init__()
+            self.attempts = 0
+
+        def wait_for_telemetry(self, timeout_seconds: float | None = None):
+            self.attempts += 1
+            if self.attempts == 1:
+                raise RuntimeError("temporary EnergyPlus output lock")
+            return super().wait_for_telemetry(timeout_seconds)
+
+    async def run_test() -> None:
+        backend = FlakyBackend()
+        retrying_runner = EnergyPlusRunner(
+            state=isolated_state,
+            interval_seconds=0.01,
+            backend=backend,
+        )
+        await retrying_runner.start()
+        await asyncio.sleep(0.05)
+        await retrying_runner.stop()
+
+        assert backend.attempts >= 2
+        assert isolated_state.get_latest_telemetry() is not None
+
+    asyncio.run(run_test())
 
 
 def test_load_frames_from_eso_and_meter_files(tmp_path):
