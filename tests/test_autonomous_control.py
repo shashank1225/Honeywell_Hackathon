@@ -46,3 +46,19 @@ def test_llm_policy_handoff_is_safety_validated_on_next_control_cycle():
     assert status.active_policy == OperatingPolicy.ENERGY_SAVER
     assert state.get_setpoints().hvac_temperature_c == 24.0
     assert "LLM recommendation accepted by Safety Sentinel" in status.last_action
+
+
+def test_rejected_llm_policy_activates_safe_balanced_fallback():
+    state = BuildingState()
+    state.update_setpoints(hvac_temperature_c=24.0, ventilation_rate_pct=35.0)
+    handoffs = PolicyHandoffQueue()
+    handoffs.publish(PolicyHandoff(policy=OperatingPolicy.COMFORT_FIRST, rationale="Prioritize comfort."))
+    loop = AutonomousControlLoop(state=state, handoffs=handoffs)
+
+    status = loop.process(telemetry(power_kw=1.0))
+
+    assert status.active_policy == OperatingPolicy.BALANCED
+    assert status.fallback_activated
+    assert state.get_setpoints().hvac_temperature_c == 22.0
+    assert state.get_setpoints().ventilation_rate_pct == 50.0
+    assert "safe balanced fallback activated" in status.last_action

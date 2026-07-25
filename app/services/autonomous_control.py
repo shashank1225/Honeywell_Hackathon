@@ -71,7 +71,24 @@ class AutonomousControlLoop:
                     if handoff else f"Autonomously selected {policy.value} from measured power {telemetry.power_kw:.2f} kW"
                 )
             else:
-                self._status.last_action = f"Safety Sentinel rejected {policy.value}: {'; '.join(result.reasons)}"
+                if handoff and policy != OperatingPolicy.BALANCED:
+                    fallback = apply_safe_setpoints(
+                        self._state,
+                        POLICY_SETPOINTS[OperatingPolicy.BALANCED],
+                        policy=OperatingPolicy.BALANCED,
+                    )
+                    if fallback.accepted:
+                        self._status.active_policy = OperatingPolicy.BALANCED
+                        self._status.fallback_activated = True
+                        self._status.last_action = (
+                            f"Safety Sentinel rejected LLM policy {policy.value}; "
+                            "safe balanced fallback activated."
+                        )
+                        return self.status()
+                self._status.last_action = (
+                    f"Safety Sentinel rejected {policy.value}; retaining last known safe setpoints. "
+                    f"Reasons: {'; '.join(result.reasons)}"
+                )
             return self.status()
 
     def status(self) -> AutonomousControlStatus:
