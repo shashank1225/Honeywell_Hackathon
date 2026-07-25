@@ -91,6 +91,11 @@ class AutonomousGoalManagementSystem:
             request = GoalRequest(objective=GoalType.ENERGY_REDUCTION, target_percent=15, priority=75)
         elif abs(telemetry.temperature_c - 22.0) >= 1.5 or telemetry.humidity_pct >= 65.0:
             request = GoalRequest(objective=GoalType.COMFORT, target_percent=12, priority=85)
+        elif telemetry.occupancy_pct <= 20.0:
+            # A material occupancy drop is an event: it may justify a
+            # supervisory setback strategy, while the fast agents continue to
+            # make every-tick safety-validated decisions.
+            request = GoalRequest(objective=GoalType.ENERGY_REDUCTION, target_percent=10, priority=65)
         else:
             return None
         with self._lock:

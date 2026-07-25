@@ -30,3 +30,19 @@ def test_proactive_goal_responds_to_high_energy_demand():
     assert goal is not None
     assert goal.source == GoalSource.AUTONOMOUS
     assert goal.request.objective == GoalType.ENERGY_REDUCTION
+
+
+def test_proactive_goal_responds_to_significant_occupancy_drop():
+    goal = AutonomousGoalManagementSystem().generate_proactive(
+        BuildingTelemetry(
+            timestamp=datetime.now(UTC),
+            temperature_c=22,
+            humidity_pct=45,
+            occupancy_pct=10,
+            power_kw=2,
+        )
+    )
+
+    assert goal is not None
+    assert goal.source == GoalSource.AUTONOMOUS
+    assert goal.request.objective == GoalType.ENERGY_REDUCTION
