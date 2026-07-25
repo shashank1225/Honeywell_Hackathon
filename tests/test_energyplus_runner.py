@@ -1,4 +1,5 @@
 import asyncio
+from pathlib import Path
 
 import pytest
 
@@ -43,6 +44,20 @@ def test_setpoints_influence_simulation(isolated_state, runner):
 def test_invalid_setpoint_range_rejected_by_schema():
     with pytest.raises(ValueError):
         Setpoints(hvac_temperature_c=10.0)
+
+
+def test_energyplus_command_uses_absolute_input_paths(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    backend = EnergyPlusSubprocessBackend.__new__(EnergyPlusSubprocessBackend)
+    backend._executable = "energyplus"
+    backend._weather_path = Path("weather.epw")
+    backend._output_dir = Path("output")
+    backend._runtime_idf_path = Path("energyplus/generated/modified.idf")
+
+    command = backend._command()
+
+    assert command[2] == str((tmp_path / "weather.epw").resolve())
+    assert command[-1] == str((tmp_path / "energyplus/generated/modified.idf").resolve())
 
 
 def test_runner_recovers_after_a_transient_energyplus_failure(isolated_state):

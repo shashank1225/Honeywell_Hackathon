@@ -108,10 +108,13 @@ class EnergyPlusSubprocessBackend:
         return [
             self._executable,
             "-w",
-            str(self._weather_path),
+            str(self._weather_path.resolve()),
             "-d",
             str(self._output_dir.resolve()),
-            str(self._runtime_idf_path),
+            # The subprocess runs with the output directory as its cwd, so
+            # relative repository paths would otherwise point inside that
+            # directory and EnergyPlus would not find the generated model.
+            str(self._runtime_idf_path.resolve()),
         ]
 
     def _drain_stream(self, stream, level: int) -> None:
