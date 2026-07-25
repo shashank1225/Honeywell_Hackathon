@@ -26,6 +26,7 @@ from app.kafka.client import publish_telemetry_event
 from app.schemas.telemetry import BuildingTelemetry, Setpoints
 from app.simulation.idf_writer import RuntimeIDFWriter
 from app.services.energy_efficiency import energy_efficiency_tracker
+from app.services.telemetry_aggregation import telemetry_window_aggregator
 from app.simulation.state import BuildingState, building_state
 
 logger = logging.getLogger(__name__)
@@ -583,6 +584,7 @@ class EnergyPlusRunner:
             # Degraded-mode delivery preserves live controls if Kafka is down.
             self._state.publish_telemetry(telemetry)
             energy_efficiency_tracker.record(telemetry, self._interval_seconds)
+            telemetry_window_aggregator.add(telemetry)
         return telemetry
 
     def _publish_to_kafka(self, telemetry: BuildingTelemetry) -> bool:
@@ -599,7 +601,7 @@ class EnergyPlusRunner:
         )
         try:
             while self._running:
-                self.tick_once()
+                await asyncio.to_thread(self.tick_once)
                 await asyncio.sleep(self._interval_seconds)
         finally:
             logger.info("EnergyPlus simulation stopped")

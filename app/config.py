@@ -22,6 +22,8 @@ class Settings(BaseSettings):
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_telemetry_topic: str = "aabos.telemetry"
     kafka_consumer_group: str = "aabos-telemetry-processor"
+    telemetry_window_samples: int = 12
+    strategic_worker_enabled: bool = True
 
     simulation_enabled: bool = True
     simulation_interval_seconds: float = 5.0

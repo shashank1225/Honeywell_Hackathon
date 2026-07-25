@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from app.schemas.telemetry import BuildingTelemetry, GoalType, OperatingPolicy, StrategicGoal, StrategicPlan
+from app.schemas.telemetry import BuildingTelemetry, GoalType, OperatingPolicy, StrategicGoal, StrategicPlan, TelemetryWindowSummary
 from app.services.adaptive_policy import AdaptivePolicyEvolutionEngine
 from app.services.automation_memory import AutomationMemory, automation_memory
 from app.services.decision_engine import POLICY_SETPOINTS, DecisionEngine, decision_engine
@@ -52,6 +52,17 @@ class StrategicReasoner:
             explanation=explanation,
             policy_performance=performance,
         )
+
+    def create_plan_from_summary(self, goal: StrategicGoal, summary: TelemetryWindowSummary) -> StrategicPlan:
+        """Plan from compact aggregates, never raw EnergyPlus output/log text."""
+        telemetry = BuildingTelemetry(
+            timestamp=summary.window_end,
+            temperature_c=summary.average_temperature_c,
+            humidity_pct=summary.average_humidity_pct,
+            occupancy_pct=summary.average_occupancy_pct,
+            power_kw=summary.average_power_kw,
+        )
+        return self.create_plan(goal, telemetry)
 
 
 strategic_reasoner = StrategicReasoner()

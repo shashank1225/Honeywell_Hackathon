@@ -8,6 +8,8 @@ from app.api.routes import api_router
 from app.config import get_settings
 from app.kafka.telemetry_consumer import TelemetryKafkaConsumer
 from app.services.energy_efficiency import energy_efficiency_tracker
+from app.services.strategic_worker import strategic_work_queue
+from app.services.telemetry_aggregation import telemetry_window_aggregator
 from app.simulation.energyplus_runner import get_energyplus_runner
 from app.simulation.state import building_state
 
@@ -17,13 +19,15 @@ async def lifespan(app: FastAPI):
     """Application startup and shutdown hooks."""
     settings = get_settings()
     runner = None
-    consumer = TelemetryKafkaConsumer(
-        lambda telemetry: (
-            building_state.publish_telemetry(telemetry),
-            energy_efficiency_tracker.record(telemetry, settings.simulation_interval_seconds),
-        )
-    )
+    def process_telemetry_event(telemetry):
+        building_state.publish_telemetry(telemetry)
+        energy_efficiency_tracker.record(telemetry, settings.simulation_interval_seconds)
+        telemetry_window_aggregator.add(telemetry)
+
+    consumer = TelemetryKafkaConsumer(process_telemetry_event)
     consumer.start()
+    if settings.strategic_worker_enabled:
+        strategic_work_queue.start()
     if settings.simulation_enabled:
         runner = get_energyplus_runner()
         await runner.start()
@@ -31,6 +35,7 @@ async def lifespan(app: FastAPI):
     if runner is not None:
         await runner.stop()
     consumer.stop()
+    strategic_work_queue.stop()
 
 
 def create_app() -> FastAPI:

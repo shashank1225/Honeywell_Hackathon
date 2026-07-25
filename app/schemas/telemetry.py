@@ -117,6 +117,29 @@ class EnergySavingsReport(BaseModel):
     samples: int = 0
 
 
+class TelemetryWindowSummary(BaseModel):
+    """Compact sliding-window context safe to pass to strategic reasoning."""
+
+    samples: int
+    window_start: datetime | None = None
+    window_end: datetime | None = None
+    average_temperature_c: float
+    min_temperature_c: float
+    max_temperature_c: float
+    average_humidity_pct: float
+    average_occupancy_pct: float
+    average_power_kw: float
+    peak_power_kw: float
+    estimated_energy_kwh: float
+
+
+class StrategicJobStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+
+
 class StrategicPlan(BaseModel):
     """A slow-loop recommendation which must still pass the Safety Sentinel."""
 
@@ -126,6 +149,18 @@ class StrategicPlan(BaseModel):
     proposed_setpoints: Setpoints
     explanation: list[str]
     policy_performance: list[PolicyPerformance]
+
+
+class StrategicJob(BaseModel):
+    """Asynchronous slow-loop job, isolated from real-time telemetry handling."""
+
+    id: UUID = Field(default_factory=uuid4)
+    goal: StrategicGoal
+    status: StrategicJobStatus = StrategicJobStatus.QUEUED
+    submitted_at: datetime
+    completed_at: datetime | None = None
+    plan: StrategicPlan | None = None
+    error: str | None = None
 
 
 class ComfortFeedback(BaseModel):
