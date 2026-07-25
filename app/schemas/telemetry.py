@@ -109,3 +109,22 @@ class StrategicPlan(BaseModel):
     proposed_setpoints: Setpoints
     explanation: list[str]
     policy_performance: list[PolicyPerformance]
+
+
+class ComfortFeedback(BaseModel):
+    """Expected versus observed comfort supplied to the self-healing loop."""
+
+    expected_comfort: float = Field(ge=0.0, le=100.0)
+    actual_comfort: float = Field(ge=0.0, le=100.0)
+    carbon_intensity_gco2_kwh: float = Field(default=400.0, ge=0.0)
+
+
+class SelfHealingStatus(BaseModel):
+    """Explainable outcome of a feedback-driven automatic correction."""
+
+    policy_failed: bool
+    automatically_corrected: bool
+    fallback_policy: OperatingPolicy | None = None
+    prediction_error: float
+    message: str
+    active_setpoints: Setpoints

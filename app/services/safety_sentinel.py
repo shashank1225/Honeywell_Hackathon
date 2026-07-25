@@ -17,7 +17,14 @@ class SafetySentinel:
     def __init__(self) -> None:
         self._last_accepted_at: datetime | None = None
 
-    def validate(self, current: Setpoints, proposed: Setpoints, *, now: datetime | None = None) -> SafetyValidationResult:
+    def validate(
+        self,
+        current: Setpoints,
+        proposed: Setpoints,
+        *,
+        now: datetime | None = None,
+        emergency: bool = False,
+    ) -> SafetyValidationResult:
         now = now or datetime.now(UTC)
         reasons: list[str] = []
         temperature_step = abs(proposed.hvac_temperature_c - current.hvac_temperature_c)
@@ -30,6 +37,7 @@ class SafetySentinel:
             self._last_accepted_at is not None
             and proposed != current
             and now - self._last_accepted_at < self.min_change_interval
+            and not emergency
         ):
             reasons.append("Setpoint change rejected to prevent control oscillation.")
         if reasons:

@@ -27,6 +27,8 @@ class Settings(BaseSettings):
 
     energyplus_executable: str | None = None
     energyplus_idf_path: Path | None = None
+    energyplus_baseline_idf_path: Path = Path("energyplus/baseline.idf")
+    energyplus_generated_idf_path: Path = Path("energyplus/generated/modified.idf")
     energyplus_weather_path: Path | None = None
     energyplus_output_dir: Path = Path("var/energyplus")
     energyplus_zone_name: str = "main"

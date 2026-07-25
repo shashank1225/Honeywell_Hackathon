@@ -24,6 +24,7 @@ from pathlib import Path
 from app.config import get_settings
 from app.kafka.client import get_kafka_producer
 from app.schemas.telemetry import BuildingTelemetry, Setpoints
+from app.simulation.idf_writer import RuntimeIDFWriter
 from app.simulation.state import BuildingState, building_state
 
 logger = logging.getLogger(__name__)
@@ -59,7 +60,9 @@ class EnergyPlusSubprocessBackend:
         settings = get_settings()
         self._zone = settings.energyplus_zone_name or zone
         self._executable = self._resolve_executable(settings.energyplus_executable)
-        self._idf_path = settings.energyplus_idf_path
+        self._idf_path = settings.energyplus_idf_path or settings.energyplus_baseline_idf_path
+        self._idf_writer = RuntimeIDFWriter(self._idf_path, settings.energyplus_generated_idf_path)
+        self._runtime_idf_path = settings.energyplus_generated_idf_path
         self._weather_path = settings.energyplus_weather_path
         self._output_dir = settings.energyplus_output_dir
         self._process: subprocess.Popen[str] | None = None
@@ -106,7 +109,7 @@ class EnergyPlusSubprocessBackend:
             str(self._weather_path),
             "-d",
             str(self._output_dir),
-            str(self._idf_path),
+            str(self._runtime_idf_path),
         ]
 
     def _drain_stream(self, stream, level: int) -> None:
@@ -507,6 +510,7 @@ class EnergyPlusSubprocessBackend:
         self._frames = []
         self._frame_index = 0
         self._latest_frame = None
+        self.publish_setpoints(Setpoints())
         self._reader_thread = threading.Thread(target=self._run_subprocess, daemon=True)
         self._reader_thread.start()
 
@@ -522,7 +526,7 @@ class EnergyPlusSubprocessBackend:
             self._reader_thread = None
 
     def publish_setpoints(self, setpoints: Setpoints) -> None:
-        _ = setpoints
+        self._runtime_idf_path = self._idf_writer.write(setpoints)
 
     def wait_for_telemetry(self, timeout_seconds: float | None = None) -> BuildingTelemetry | None:
         if not self._frames_ready.wait(timeout_seconds):

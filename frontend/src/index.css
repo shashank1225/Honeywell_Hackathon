@@ -188,6 +188,11 @@ button:hover {
   color: #86efac;
 }
 
+.healing-alert {
+  color: #fde68a;
+  font-weight: 600;
+}
+
 @media (min-width: 900px) {
   .dashboard {
     grid-template-columns: 2fr 1fr;
