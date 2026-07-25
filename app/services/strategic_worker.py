@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import queue
 import threading
 from datetime import UTC, datetime
@@ -11,7 +12,6 @@ from app.config import get_settings
 from app.schemas.telemetry import StrategicGoal, StrategicJob, StrategicJobStatus
 from app.services.strategic_reasoner import strategic_reasoner
 from app.services.ollama_client import OllamaStrategicClient, OllamaUnavailable
-from app.services.policy_handoff import PolicyHandoff, policy_handoff_queue
 from app.services.telemetry_aggregation import TelemetryWindowAggregator, telemetry_window_aggregator
 
 
@@ -79,15 +79,22 @@ class StrategicWorkQueue:
                     )
                     llm_used = True
                     fallback_used = False
-                    policy_handoff_queue.publish(PolicyHandoff(policy=recommendation.policy, rationale=recommendation.rationale))
+                    from app.mcp.server import queue_policy_recommendation
+
+                    handoff = json.loads(queue_policy_recommendation(recommendation.policy.value, recommendation.rationale))
+                    if handoff.get("status") != "queued":
+                        raise RuntimeError(f"MCP policy handoff failed: {handoff}")
+                    mcp_tools_used = [*recommendation.mcp_tools_used, "queue_policy_recommendation"]
                 except OllamaUnavailable:
                     plan = strategic_reasoner.create_plan_from_summary(job.goal, summary)
                     llm_used = False
                     fallback_used = True
+                    mcp_tools_used = []
                 with self._lock:
                     job.plan = plan
                     job.llm_used = llm_used
                     job.llm_model = get_settings().llm_model if llm_used else None
+                    job.mcp_tools_used = mcp_tools_used
                     job.deterministic_fallback_used = fallback_used
                     job.status = StrategicJobStatus.COMPLETED
                     job.completed_at = datetime.now(UTC)

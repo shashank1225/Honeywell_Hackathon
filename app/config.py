@@ -30,7 +30,7 @@ class Settings(BaseSettings):
     llm_model: str = "llama3.2:3b"
     llm_timeout_seconds: float = 60.0
     llm_keep_alive: str = "30m"
-    llm_max_tokens: int = 80
+    llm_max_tokens: int = 120
     llm_context_tokens: int = 2048
     autonomous_control_enabled: bool = True
     autonomous_power_threshold_kw: float = 3.5

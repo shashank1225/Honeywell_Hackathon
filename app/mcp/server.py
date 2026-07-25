@@ -10,12 +10,14 @@ will validate downstream actuator commands before they reach EnergyPlus.
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 from mcp.server.fastmcp import FastMCP
 
 from app.config import get_settings
-from app.schemas.telemetry import Setpoints
+from app.schemas.telemetry import OperatingPolicy, Setpoints
 from app.services.control_gateway import apply_safe_setpoints
+from app.services.policy_handoff import PolicyHandoff, policy_handoff_queue
 from app.simulation.state import building_state
 
 settings = get_settings()
@@ -40,6 +42,98 @@ def current_telemetry() -> str:
 def current_setpoints() -> str:
     """Active HVAC temperature and ventilation setpoints."""
     return building_state.get_setpoints().model_dump_json()
+
+
+@mcp.tool()
+def get_building_context() -> str:
+    """Read live telemetry and active setpoints through the MCP context contract."""
+    return json.dumps(
+        {
+            "telemetry": json.loads(current_telemetry()),
+            "setpoints": json.loads(current_setpoints()),
+            "source": "AABOS MCP building resources",
+        }
+    )
+
+
+@mcp.tool()
+def inspect_generated_model() -> str:
+    """Inspect the runtime-generated EnergyPlus IDF header without modifying it."""
+    model_path = Path(settings.energyplus_generated_idf_path)
+    if not model_path.exists():
+        return json.dumps({"status": "missing", "path": str(model_path)})
+    try:
+        header = model_path.read_text(encoding="utf-8", errors="replace").splitlines()[:4]
+    except OSError as exc:
+        return json.dumps({"status": "unavailable", "path": str(model_path), "error": str(exc)})
+    return json.dumps(
+        {
+            "status": "available",
+            "path": str(model_path.resolve()),
+            "bytes": model_path.stat().st_size,
+            "header": header,
+        }
+    )
+
+
+@mcp.tool()
+def read_energyplus_runtime_errors(max_characters: int = 1600) -> str:
+    """Read a bounded tail of the current EnergyPlus error log for diagnosis."""
+    limit = min(4000, max(200, int(max_characters)))
+    output_dir = Path(settings.energyplus_output_dir)
+    candidates = [output_dir / "eplusout.err", output_dir / "var" / "energyplus" / "eplusout.err"]
+    error_path = next((path for path in candidates if path.exists()), None)
+    if error_path is None:
+        return json.dumps({"status": "not_available", "message": "No EnergyPlus error log has been generated yet."})
+    try:
+        content = error_path.read_text(encoding="utf-8", errors="replace")[-limit:]
+    except OSError as exc:
+        return json.dumps({"status": "unavailable", "path": str(error_path), "error": str(exc)})
+    return json.dumps({"status": "available", "path": str(error_path.resolve()), "tail": content})
+
+
+@mcp.tool()
+def inspect_building_runtime() -> str:
+    """Collect bounded MCP evidence for LLM reasoning in one tool call.
+
+    The result includes live building context, the generated IDF inspection,
+    and the EnergyPlus error-log tail. It is read-only and does not modify the
+    simulator or actuator targets.
+    """
+    return json.dumps(
+        {
+            "building_context": json.loads(get_building_context()),
+            "generated_model": json.loads(inspect_generated_model()),
+            "runtime_errors": json.loads(read_energyplus_runtime_errors(600)),
+        }
+    )
+
+
+@mcp.tool()
+def queue_policy_recommendation(policy: str, rationale: str) -> str:
+    """Queue a high-level policy for next-cycle Safety Sentinel validation.
+
+    This never changes an actuator directly. The autonomous control loop reads
+    the recommendation on the next cycle and validates its setpoints before
+    writing the EnergyPlus runtime model.
+    """
+    try:
+        selected_policy = OperatingPolicy(policy)
+    except ValueError:
+        return json.dumps({"status": "rejected", "reason": f"Unknown operating policy: {policy}"})
+    clean_rationale = rationale.strip()[:500]
+    if not clean_rationale:
+        return json.dumps({"status": "rejected", "reason": "A policy rationale is required."})
+    policy_handoff_queue.publish(
+        PolicyHandoff(policy=selected_policy, rationale=clean_rationale, source="mcp-llm-tool")
+    )
+    return json.dumps(
+        {
+            "status": "queued",
+            "policy": selected_policy.value,
+            "message": "Queued for next-cycle Safety Sentinel validation; no actuator changed directly.",
+        }
+    )
 
 
 @mcp.tool()

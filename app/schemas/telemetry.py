@@ -189,6 +189,7 @@ class StrategicJob(BaseModel):
     error: str | None = None
     llm_used: bool = False
     llm_model: str | None = None
+    mcp_tools_used: list[str] = Field(default_factory=list)
     deterministic_fallback_used: bool = False
 
 

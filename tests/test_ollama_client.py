@@ -38,14 +38,36 @@ def summary() -> TelemetryWindowSummary:
 
 
 def test_ollama_request_is_short_bounded_json_and_kept_warm(monkeypatch):
-    observed = {}
+    observed = {"payloads": []}
+    responses = [
+        {
+            "message": {
+                "role": "assistant",
+                "content": "",
+                "tool_calls": [
+                    {"function": {"name": "inspect_building_runtime", "arguments": {}}},
+                ],
+            }
+        },
+        {
+            "message": {
+                "role": "assistant",
+                "content": json.dumps({"policy": "energy_saver", "rationale": "Demand is elevated."}),
+            }
+        },
+    ]
 
     def fake_urlopen(request, timeout):
-        observed["payload"] = json.loads(request.data.decode("utf-8"))
+        observed["payloads"].append(json.loads(request.data.decode("utf-8")))
         observed["timeout"] = timeout
-        return FakeResponse({"response": json.dumps({"policy": "energy_saver", "rationale": "Demand is elevated."})})
+        return FakeResponse(responses.pop(0))
 
     monkeypatch.setattr("app.services.ollama_client.urlopen", fake_urlopen)
+    monkeypatch.setattr(
+        OllamaStrategicClient,
+        "_execute_mcp_tool",
+        staticmethod(lambda name, arguments: json.dumps({"tool": name, "arguments": arguments})),
+    )
     get_settings.cache_clear()
     try:
         recommendation = OllamaStrategicClient().recommend(
@@ -56,7 +78,8 @@ def test_ollama_request_is_short_bounded_json_and_kept_warm(monkeypatch):
         get_settings.cache_clear()
 
     assert recommendation.policy.value == "energy_saver"
-    assert observed["payload"]["format"] == "json"
-    assert observed["payload"]["keep_alive"] == "30m"
-    assert observed["payload"]["options"]["num_predict"] == 80
-    assert observed["payload"]["options"]["num_ctx"] == 2048
+    assert recommendation.mcp_tools_used == ("inspect_building_runtime",)
+    assert observed["payloads"][0]["tools"]
+    assert observed["payloads"][0]["keep_alive"] == "30m"
+    assert observed["payloads"][0]["options"]["num_predict"] == 120
+    assert observed["payloads"][0]["options"]["num_ctx"] == 2048

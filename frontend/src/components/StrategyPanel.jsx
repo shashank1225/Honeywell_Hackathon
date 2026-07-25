@@ -5,6 +5,7 @@ export default function StrategyPanel() {
   const [target, setTarget] = useState(10);
   const [plan, setPlan] = useState(null);
   const [llmUsed, setLlmUsed] = useState(false);
+  const [mcpTools, setMcpTools] = useState([]);
   const [error, setError] = useState("");
   const [generating, setGenerating] = useState(false);
 
@@ -22,6 +23,7 @@ export default function StrategyPanel() {
     }
     setPlan(await response.json());
     setLlmUsed(false);
+    setMcpTools([]);
   }
 
   async function requestLlmPlan() {
@@ -45,6 +47,7 @@ export default function StrategyPanel() {
       if (job.status === "completed") {
         setPlan(job.plan);
         setLlmUsed(job.llm_used);
+        setMcpTools(job.mcp_tools_used ?? []);
         setGenerating(false);
         return;
       }
@@ -80,6 +83,7 @@ export default function StrategyPanel() {
         <div className="strategy-result">
           <p><strong>{plan.selected_policy.replaceAll("_", " ")}</strong> · {Math.round(plan.confidence * 100)}% confidence</p>
           <p className="message">{llmUsed ? "Local Llama 3.2 generated this strategic policy." : "Live specialized agents generated this immediate policy."}</p>
+          {llmUsed && <p className="timestamp">MCP tools used: {mcpTools.join(", ") || "awaiting tool audit"}</p>}
           <p>Proposed: {plan.proposed_setpoints.hvac_temperature_c} °C · {plan.proposed_setpoints.ventilation_rate_pct}% ventilation</p>
           <p className="timestamp">{plan.explanation[0]}</p>
         </div>

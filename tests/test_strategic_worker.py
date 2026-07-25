@@ -26,5 +26,6 @@ def test_strategic_work_runs_asynchronously_from_aggregated_context():
         assert job.status == StrategicJobStatus.COMPLETED
         assert job.plan is not None
         assert job.llm_used
+        assert "queue_policy_recommendation" in job.mcp_tools_used
     finally:
         worker.stop()

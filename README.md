@@ -23,14 +23,14 @@ The local `llama3.2:3b` model is a strategic supervisor only. It receives compac
 - **APEE and Automation Memory:** each observed control cycle stores a bounded reward, comfort, energy, confidence, telemetry state, and counterfactual comparison. PostgreSQL persistence occurs on a background worker.
 - **Counterfactual Automation:** read-only projections compare the selected policy against all alternatives; realized savings remain based on actual measured EnergyPlus power.
 - **Safety Sentinel:** bounds HVAC, ventilation, and lighting changes; rejects rapid reversals; every REST, MCP, autonomous, LLM, and recovery proposal uses the same gateway.
-- **MCP Server:** exposes telemetry and current setpoints as resources and safety-gated HVAC, ventilation, and lighting schedule tools.
+- **MCP Server:** exposes telemetry and current setpoints as resources, bounded runtime-inspection tools, and safety-gated HVAC, ventilation, and lighting schedule tools. Before an LLM policy is accepted, local Llama must call `inspect_building_runtime`; the worker then uses `queue_policy_recommendation`, which is audit-visible and feeds the next-cycle Safety Sentinel rather than directly actuating equipment.
 - **Runtime models:** [`energyplus/baseline.idf`](energyplus/baseline.idf) remains the source model. A safety-approved policy writes [`energyplus/generated/modified.idf`](energyplus/generated/modified.idf), including thermostat and lighting schedule updates, before the next EnergyPlus cycle.
 
 ## Prompt-latency and log management
 
 EnergyPlus output is never fed to the LLM verbatim. Kafka telemetry is reduced to a fixed rolling window containing average/min/max temperature, humidity, occupancy, power, peak demand, and estimated energy. The prompt is bounded and requests JSON only.
 
-Ollama is warmed in a background thread at startup, held for 30 minutes, constrained to a 2,048-token context and 80 generated tokens, and called only from the slow strategic worker. If it is unavailable, that worker produces a deterministic plan while the fast control loop continues unchanged.
+Ollama is warmed in a background thread at startup, held for 30 minutes, constrained to a 2,048-token context and 120 generated tokens, and called only from the slow strategic worker. If it is unavailable, that worker produces a deterministic plan while the fast control loop continues unchanged.
 
 ## Demo run
 
