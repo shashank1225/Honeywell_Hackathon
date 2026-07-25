@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from app.agents.specialized import CarbonAgent, ComfortAgent, EnergyAgent
+from app.agents.mcp_context import MCPBuildingContext
 from app.schemas.telemetry import (
     BuildingTelemetry,
     DecisionResult,
@@ -63,6 +64,14 @@ class DecisionEngine:
             recommendations=recommendations,
             proposed_setpoints=POLICY_SETPOINTS[selected_policy].model_copy(),
         )
+
+    def decide_from_mcp(
+        self,
+        context: MCPBuildingContext,
+        carbon_intensity_gco2_kwh: float | None = None,
+    ) -> DecisionResult:
+        """Run the specialized agents from MCP-provided building context."""
+        return self.decide(context.read_telemetry(), carbon_intensity_gco2_kwh)
 
 
 decision_engine = DecisionEngine()

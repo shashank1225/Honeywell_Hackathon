@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException
 
 from app.schemas.telemetry import Setpoints
+from app.services.control_gateway import apply_safe_setpoints
 from app.simulation.state import building_state
 
 router = APIRouter(prefix="/setpoints", tags=["setpoints"])
@@ -18,7 +19,11 @@ def set_hvac_temperature(temperature_c: float) -> Setpoints:
             status_code=400,
             detail="HVAC temperature must be between 16°C and 30°C",
         )
-    return building_state.update_setpoints(hvac_temperature_c=temperature_c)
+    current = building_state.get_setpoints()
+    result = apply_safe_setpoints(building_state, current.model_copy(update={"hvac_temperature_c": temperature_c}))
+    if not result.accepted or result.safe_setpoints is None:
+        raise HTTPException(status_code=409, detail=result.reasons)
+    return result.safe_setpoints
 
 
 @router.put("/ventilation", response_model=Setpoints)
@@ -28,4 +33,8 @@ def adjust_ventilation(ventilation_rate_pct: float) -> Setpoints:
             status_code=400,
             detail="Ventilation rate must be between 0% and 100%",
         )
-    return building_state.update_setpoints(ventilation_rate_pct=ventilation_rate_pct)
+    current = building_state.get_setpoints()
+    result = apply_safe_setpoints(building_state, current.model_copy(update={"ventilation_rate_pct": ventilation_rate_pct}))
+    if not result.accepted or result.safe_setpoints is None:
+        raise HTTPException(status_code=409, detail=result.reasons)
+    return result.safe_setpoints

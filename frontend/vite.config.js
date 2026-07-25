@@ -14,6 +14,7 @@ export default defineConfig({
       "/strategy": "http://127.0.0.1:8000",
       "/self-healing": "http://127.0.0.1:8000",
       "/goals": "http://127.0.0.1:8000",
+      "/energy": "http://127.0.0.1:8000",
       "/health": "http://127.0.0.1:8000",
     },
   },

@@ -14,6 +14,8 @@ import json
 from mcp.server.fastmcp import FastMCP
 
 from app.config import get_settings
+from app.schemas.telemetry import Setpoints
+from app.services.control_gateway import apply_safe_setpoints
 from app.simulation.state import building_state
 
 settings = get_settings()
@@ -57,7 +59,11 @@ def set_hvac_temperature(zone: str, temperature_c: float) -> str:
             }
         )
 
-    updated = building_state.update_setpoints(hvac_temperature_c=temperature_c)
+    current = building_state.get_setpoints()
+    result = apply_safe_setpoints(building_state, current.model_copy(update={"hvac_temperature_c": temperature_c}))
+    if not result.accepted or result.safe_setpoints is None:
+        return json.dumps({"status": "rejected", "reason": result.reasons})
+    updated = result.safe_setpoints
     return json.dumps(
         {
             "status": "accepted",
@@ -84,7 +90,11 @@ def adjust_ventilation(zone: str, ventilation_rate_pct: float) -> str:
             }
         )
 
-    updated = building_state.update_setpoints(ventilation_rate_pct=ventilation_rate_pct)
+    current = building_state.get_setpoints()
+    result = apply_safe_setpoints(building_state, current.model_copy(update={"ventilation_rate_pct": ventilation_rate_pct}))
+    if not result.accepted or result.safe_setpoints is None:
+        return json.dumps({"status": "rejected", "reason": result.reasons})
+    updated = result.safe_setpoints
     return json.dumps(
         {
             "status": "accepted",

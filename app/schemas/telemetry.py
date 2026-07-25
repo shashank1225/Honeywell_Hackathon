@@ -91,6 +91,8 @@ class AutomationEpisode(BaseModel):
     comfort_score: float = Field(ge=0.0, le=1.0)
     carbon_kg: float = Field(ge=0.0)
     confidence: float = Field(ge=0.0, le=1.0)
+    baseline_energy_kwh: float = Field(default=0.0, ge=0.0)
+    energy_savings_pct: float = Field(default=0.0)
 
 
 class PolicyPerformance(BaseModel):
@@ -99,6 +101,20 @@ class PolicyPerformance(BaseModel):
     policy: OperatingPolicy
     average_reward: float
     observations: int
+    baseline_energy_kwh: float = 0.0
+    actual_energy_kwh: float = 0.0
+    energy_savings_pct: float = 0.0
+
+
+class EnergySavingsReport(BaseModel):
+    """Measured energy result compared with a captured balanced baseline."""
+
+    baseline_power_kw: float | None = None
+    baseline_energy_kwh: float = 0.0
+    actual_energy_kwh: float = 0.0
+    energy_savings_kwh: float = 0.0
+    energy_savings_pct: float = 0.0
+    samples: int = 0
 
 
 class StrategicPlan(BaseModel):

@@ -22,9 +22,10 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from app.config import get_settings
-from app.kafka.client import get_kafka_producer
+from app.kafka.client import publish_telemetry_event
 from app.schemas.telemetry import BuildingTelemetry, Setpoints
 from app.simulation.idf_writer import RuntimeIDFWriter
+from app.services.energy_efficiency import energy_efficiency_tracker
 from app.simulation.state import BuildingState, building_state
 
 logger = logging.getLogger(__name__)
@@ -578,19 +579,15 @@ class EnergyPlusRunner:
                 "EnergyPlus telemetry is unavailable. Configure ENERGYPLUS_EXECUTABLE, "
                 "ENERGYPLUS_IDF_PATH, and ENERGYPLUS_WEATHER_PATH so the real simulation can run."
             )
-        self._state.publish_telemetry(telemetry)
-        self._publish_to_kafka(telemetry)
+        if not self._publish_to_kafka(telemetry):
+            # Degraded-mode delivery preserves live controls if Kafka is down.
+            self._state.publish_telemetry(telemetry)
+            energy_efficiency_tracker.record(telemetry, self._interval_seconds)
         return telemetry
 
-    def _publish_to_kafka(self, telemetry: BuildingTelemetry) -> None:
-        settings = get_settings()
-        producer = get_kafka_producer()
-        if producer is None:
-            return
-
+    def _publish_to_kafka(self, telemetry: BuildingTelemetry) -> bool:
         payload = json.dumps(telemetry.model_dump(mode="json"))
-        producer.send(settings.kafka_telemetry_topic, payload)
-        producer.flush(timeout=1)
+        return publish_telemetry_event(payload)
 
     async def run_loop(self) -> None:
         """Background loop used by FastAPI lifespan startup."""

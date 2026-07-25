@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     database_url: str = "postgresql://aabos:aabos@127.0.0.1:5433/aabos"
     kafka_bootstrap_servers: str = "localhost:9092"
     kafka_telemetry_topic: str = "aabos.telemetry"
+    kafka_consumer_group: str = "aabos-telemetry-processor"
 
     simulation_enabled: bool = True
     simulation_interval_seconds: float = 5.0

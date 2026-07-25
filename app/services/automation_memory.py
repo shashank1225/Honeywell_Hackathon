@@ -35,12 +35,19 @@ class AutomationMemory:
             episodes = list(self._episodes)
         performance: list[PolicyPerformance] = []
         for policy in OperatingPolicy:
-            rewards = [episode.reward for episode in episodes if episode.policy == policy]
+            policy_episodes = [episode for episode in episodes if episode.policy == policy]
+            rewards = [episode.reward for episode in policy_episodes]
+            baseline_energy = sum(episode.baseline_energy_kwh for episode in policy_episodes)
+            actual_energy = sum(episode.energy_kwh for episode in policy_episodes)
+            savings_pct = ((baseline_energy - actual_energy) / baseline_energy * 100.0) if baseline_energy else 0.0
             performance.append(
                 PolicyPerformance(
                     policy=policy,
                     average_reward=round(sum(rewards) / len(rewards), 3) if rewards else 0.0,
                     observations=len(rewards),
+                    baseline_energy_kwh=round(baseline_energy, 5),
+                    actual_energy_kwh=round(actual_energy, 5),
+                    energy_savings_pct=round(savings_pct, 2),
                 )
             )
         return sorted(performance, key=lambda item: (item.average_reward, item.observations), reverse=True)

@@ -1,5 +1,5 @@
 from kafka import KafkaProducer
-from kafka.errors import NoBrokersAvailable
+from kafka.errors import KafkaError, NoBrokersAvailable
 
 from app.config import get_settings
 
@@ -25,6 +25,19 @@ def check_kafka_connection() -> bool:
     """Verify Kafka broker connectivity for health checks."""
     producer = get_kafka_producer()
     if producer is None:
+        return False
+
+
+def publish_telemetry_event(payload: str) -> bool:
+    """Publish without allowing an unavailable broker to stop the control loop."""
+    producer = get_kafka_producer()
+    if producer is None:
+        return False
+    try:
+        producer.send(get_settings().kafka_telemetry_topic, payload)
+        producer.flush(timeout=1)
+        return True
+    except KafkaError:
         return False
     try:
         producer.bootstrap_connected()
