@@ -27,17 +27,38 @@ export default function Dashboard() {
       .then(setSetpoints)
       .catch(() => setError("Unable to load setpoints"));
 
-    const socket = new WebSocket(WS_URL);
+    let socket;
+    let reconnectTimer;
+    let disposed = false;
 
-    socket.onopen = () => setConnectionState("connected");
-    socket.onclose = () => setConnectionState("disconnected");
-    socket.onerror = () => setError("Telemetry stream disconnected");
-    socket.onmessage = (event) => {
-      setTelemetry(JSON.parse(event.data));
-      setError("");
+    const connect = () => {
+      socket = new WebSocket(WS_URL);
+      socket.onopen = () => {
+        setConnectionState("connected");
+        setError("");
+      };
+      socket.onclose = () => {
+        if (disposed) return;
+        setConnectionState("reconnecting");
+        setError("Backend connection lost. Reconnecting to telemetry…");
+        reconnectTimer = window.setTimeout(connect, 1500);
+      };
+      socket.onerror = () => {
+        if (!disposed) setError("Backend connection lost. Reconnecting to telemetry…");
+      };
+      socket.onmessage = (event) => {
+        setTelemetry(JSON.parse(event.data));
+        setError("");
+      };
     };
 
-    return () => socket.close();
+    connect();
+
+    return () => {
+      disposed = true;
+      window.clearTimeout(reconnectTimer);
+      socket?.close();
+    };
   }, []);
 
   async function refreshSetpoints() {
