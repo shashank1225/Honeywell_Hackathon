@@ -19,7 +19,7 @@ The local `llama3.2:3b` model is a strategic supervisor only. It receives compac
 ## Components implemented
 
 - **AGMS and Goal Negotiation:** human and proactive goals, feasibility evidence, prioritization, and conflicting lower-priority goals marked for negotiation.
-- **Strategic Reasoning:** instant agent plan for the UI; background Ollama refinement on operator request, every 30 minutes for an active goal, or after a major demand/comfort transition.
+- **Strategic Reasoning:** the LLM operates as an event-driven cognitive reasoning layer. It is invoked whenever significant building-state changes occur (occupancy, weather-influenced demand, energy spikes, comfort degradation, or new goals) and also performs periodic strategic reviews. Rather than issuing low-level actuator commands, it recommends policy updates and optimization strategies that the Decision Engine translates into safety-validated control actions.
 - **APEE and Automation Memory:** each observed control cycle stores a bounded reward, comfort, energy, confidence, telemetry state, and counterfactual comparison. PostgreSQL persistence occurs on a background worker.
 - **Counterfactual Automation:** read-only projections compare the selected policy against all alternatives; realized savings remain based on actual measured EnergyPlus power.
 - **Safety Sentinel:** bounds HVAC, ventilation, and lighting changes; rejects rapid reversals; every REST, MCP, autonomous, LLM, and recovery proposal uses the same gateway.
