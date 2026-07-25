@@ -4,12 +4,13 @@ export default function StrategyPanel() {
   const [objective, setObjective] = useState("energy_reduction");
   const [target, setTarget] = useState(10);
   const [plan, setPlan] = useState(null);
+  const [llmUsed, setLlmUsed] = useState(false);
   const [error, setError] = useState("");
 
   async function createPlan(event) {
     event.preventDefault();
     setError("");
-    const response = await fetch("/strategy/plan", {
+    const response = await fetch("/strategy/jobs", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ objective, target_percent: Number(target) }),
@@ -18,7 +19,19 @@ export default function StrategyPanel() {
       setError("Telemetry is still loading. Please try again in a few seconds.");
       return;
     }
-    setPlan(await response.json());
+    let job = await response.json();
+    for (let attempt = 0; attempt < 70; attempt += 1) {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      const jobResponse = await fetch(`/strategy/jobs/${job.id}`);
+      job = await jobResponse.json();
+      if (job.status === "completed") {
+        setPlan(job.plan);
+        setLlmUsed(job.llm_used);
+        return;
+      }
+      if (job.status === "failed") break;
+    }
+    setError("Strategic LLM job did not complete. Check that Ollama is running.");
   }
 
   return (
@@ -39,6 +52,7 @@ export default function StrategyPanel() {
       {plan && (
         <div className="strategy-result">
           <p><strong>{plan.selected_policy.replaceAll("_", " ")}</strong> · {Math.round(plan.confidence * 100)}% confidence</p>
+          <p className="message">{llmUsed ? "Local Llama 3.2 generated this policy." : "Deterministic safety fallback generated this policy."}</p>
           <p>Proposed: {plan.proposed_setpoints.hvac_temperature_c} °C · {plan.proposed_setpoints.ventilation_rate_pct}% ventilation</p>
           <p className="timestamp">{plan.explanation[0]}</p>
         </div>

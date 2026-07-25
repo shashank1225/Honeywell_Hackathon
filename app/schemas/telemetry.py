@@ -161,6 +161,9 @@ class StrategicJob(BaseModel):
     completed_at: datetime | None = None
     plan: StrategicPlan | None = None
     error: str | None = None
+    llm_used: bool = False
+    llm_model: str | None = None
+    deterministic_fallback_used: bool = False
 
 
 class ComfortFeedback(BaseModel):

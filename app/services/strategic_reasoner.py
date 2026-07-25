@@ -15,7 +15,14 @@ class StrategicReasoner:
         self._memory = memory or automation_memory
         self._engine = engine or decision_engine
 
-    def create_plan(self, goal: StrategicGoal, telemetry: BuildingTelemetry) -> StrategicPlan:
+    def create_plan(
+        self,
+        goal: StrategicGoal,
+        telemetry: BuildingTelemetry,
+        *,
+        llm_policy: OperatingPolicy | None = None,
+        llm_rationale: str | None = None,
+    ) -> StrategicPlan:
         decision = self._engine.decide(telemetry, goal.carbon_intensity_gco2_kwh)
         goal_policy = {
             GoalType.ENERGY_REDUCTION: OperatingPolicy.ENERGY_SAVER,
@@ -28,9 +35,9 @@ class StrategicReasoner:
 
         # A clear requested goal starts with a small priority advantage. Learned
         # outcomes may break a close decision, but cannot overrule safety.
-        selected_policy = goal_policy
+        selected_policy = llm_policy or goal_policy
         if decision.selected_policy != goal_policy and decision.confidence + decision_adjustment > 0.8 + goal_adjustment:
-            selected_policy = decision.selected_policy
+            selected_policy = llm_policy or decision.selected_policy
 
         confidence = decision.confidence if selected_policy == decision.selected_policy else 0.8
         explanation = [
@@ -38,6 +45,8 @@ class StrategicReasoner:
             *decision.rationale,
             "This is a supervisory recommendation; Phase 3 Safety Sentinel validation is required before any setpoint change.",
         ]
+        if llm_rationale:
+            explanation.insert(0, f"Local Llama strategic recommendation: {llm_rationale}")
         observed = next(item for item in performance if item.policy == selected_policy)
         if observed.observations:
             explanation.append(
@@ -53,7 +62,14 @@ class StrategicReasoner:
             policy_performance=performance,
         )
 
-    def create_plan_from_summary(self, goal: StrategicGoal, summary: TelemetryWindowSummary) -> StrategicPlan:
+    def create_plan_from_summary(
+        self,
+        goal: StrategicGoal,
+        summary: TelemetryWindowSummary,
+        *,
+        llm_policy: OperatingPolicy | None = None,
+        llm_rationale: str | None = None,
+    ) -> StrategicPlan:
         """Plan from compact aggregates, never raw EnergyPlus output/log text."""
         telemetry = BuildingTelemetry(
             timestamp=summary.window_end,
@@ -62,7 +78,7 @@ class StrategicReasoner:
             occupancy_pct=summary.average_occupancy_pct,
             power_kw=summary.average_power_kw,
         )
-        return self.create_plan(goal, telemetry)
+        return self.create_plan(goal, telemetry, llm_policy=llm_policy, llm_rationale=llm_rationale)
 
 
 strategic_reasoner = StrategicReasoner()

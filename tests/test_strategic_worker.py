@@ -1,7 +1,8 @@
 import time
 from datetime import UTC, datetime
 
-from app.schemas.telemetry import BuildingTelemetry, GoalType, StrategicGoal, StrategicJobStatus
+from app.schemas.telemetry import BuildingTelemetry, GoalType, OperatingPolicy, StrategicGoal, StrategicJobStatus
+from app.services.ollama_client import LLMPolicyRecommendation
 from app.services.strategic_worker import StrategicWorkQueue
 from app.services.telemetry_aggregation import TelemetryWindowAggregator
 
@@ -9,7 +10,11 @@ from app.services.telemetry_aggregation import TelemetryWindowAggregator
 def test_strategic_work_runs_asynchronously_from_aggregated_context():
     aggregator = TelemetryWindowAggregator(max_samples=2)
     aggregator.add(BuildingTelemetry(timestamp=datetime.now(UTC), temperature_c=22, humidity_pct=45, occupancy_pct=50, power_kw=7))
-    worker = StrategicWorkQueue(aggregator=aggregator)
+    class FakeLLM:
+        def recommend(self, goal, summary):
+            return LLMPolicyRecommendation(policy=OperatingPolicy.ENERGY_SAVER, rationale="Measured demand warrants savings.")
+
+    worker = StrategicWorkQueue(aggregator=aggregator, llm_client=FakeLLM())
     worker.start()
     try:
         job = worker.submit(StrategicGoal(objective=GoalType.ENERGY_REDUCTION, target_percent=10))
@@ -21,5 +26,6 @@ def test_strategic_work_runs_asynchronously_from_aggregated_context():
         assert job is not None
         assert job.status == StrategicJobStatus.COMPLETED
         assert job.plan is not None
+        assert job.llm_used
     finally:
         worker.stop()
