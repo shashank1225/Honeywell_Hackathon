@@ -3,6 +3,7 @@ import MetricCard from "./MetricCard.jsx";
 import SetpointPanel from "./SetpointPanel.jsx";
 import StrategyPanel from "./StrategyPanel.jsx";
 import SelfHealingPanel from "./SelfHealingPanel.jsx";
+import GoalsPanel from "./GoalsPanel.jsx";
 
 const WS_URL = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/telemetry/stream`;
 
@@ -77,6 +78,7 @@ export default function Dashboard() {
       <SetpointPanel setpoints={setpoints} onUpdated={refreshSetpoints} />
       <StrategyPanel />
       <SelfHealingPanel />
+      <GoalsPanel />
     </main>
   );
 }

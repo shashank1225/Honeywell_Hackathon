@@ -1,5 +1,6 @@
 from datetime import datetime
 from enum import StrEnum
+from uuid import UUID, uuid4
 
 from pydantic import BaseModel, Field
 
@@ -128,3 +129,44 @@ class SelfHealingStatus(BaseModel):
     prediction_error: float
     message: str
     active_setpoints: Setpoints
+
+
+class GoalSource(StrEnum):
+    HUMAN = "human"
+    AUTONOMOUS = "autonomous"
+
+
+class GoalStatus(StrEnum):
+    ACCEPTED = "accepted"
+    NEGOTIATING = "negotiating"
+    REJECTED = "rejected"
+
+
+class GoalRequest(BaseModel):
+    """Goal submitted by an operator or generated from operating conditions."""
+
+    objective: GoalType
+    target_percent: float = Field(default=10.0, ge=1.0, le=50.0)
+    priority: int = Field(default=50, ge=1, le=100)
+    carbon_intensity_gco2_kwh: float | None = Field(default=None, ge=0.0)
+
+
+class GoalAssessment(BaseModel):
+    """Feasibility and tradeoff evidence produced by goal negotiation."""
+
+    feasible: bool
+    expected_reduction_percent: float
+    comfort_impact_percent: float
+    carbon_impact_percent: float
+    rationale: str
+
+
+class ManagedGoal(BaseModel):
+    """Prioritized goal held by the Autonomous Goal Management System."""
+
+    id: UUID = Field(default_factory=uuid4)
+    source: GoalSource
+    status: GoalStatus
+    request: GoalRequest
+    assessment: GoalAssessment
+    created_at: datetime
