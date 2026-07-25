@@ -38,6 +38,17 @@ def test_autonomous_loop_activates_fallback_after_measured_comfort_shortfall():
     assert status.active_policy == OperatingPolicy.COMFORT_FIRST
 
 
+def test_energy_saver_setpoint_stays_inside_the_occupied_comfort_band():
+    state = BuildingState()
+    loop = AutonomousControlLoop(state=state)
+    loop.process(telemetry(power_kw=6.0))
+
+    status = loop.process(telemetry(power_kw=4.0, temperature_c=24.0))
+
+    assert status.comfort_pct == 100.0
+    assert not status.fallback_activated
+
+
 def test_llm_policy_handoff_is_safety_validated_on_next_control_cycle():
     state = BuildingState()
     handoffs = PolicyHandoffQueue()

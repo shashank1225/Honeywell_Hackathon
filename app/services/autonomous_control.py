@@ -61,7 +61,14 @@ class AutonomousControlLoop:
 
     @staticmethod
     def comfort_score(telemetry: BuildingTelemetry) -> float:
-        return round(max(0.0, 100.0 - abs(telemetry.temperature_c - 22.0) * 10.0 - max(0.0, telemetry.humidity_pct - 60.0)), 1)
+        """Score measured comfort against the approved occupied comfort band.
+
+        An energy-saving 24 C setpoint remains comfortable; treating it as a
+        two-degree failure would immediately and incorrectly undo a valid
+        policy. Temperatures only lose comfort score outside the 20-24 C band.
+        """
+        temperature_gap = max(0.0, 20.0 - telemetry.temperature_c, telemetry.temperature_c - 24.0)
+        return round(max(0.0, 100.0 - temperature_gap * 10.0 - max(0.0, telemetry.humidity_pct - 60.0)), 1)
 
     def process(self, telemetry: BuildingTelemetry) -> AutonomousControlStatus:
         settings = get_settings()

@@ -46,7 +46,11 @@ class TelemetryFrame:
 
     def to_model(self, zone: str) -> BuildingTelemetry:
         return BuildingTelemetry(
-            timestamp=self.timestamp,
+            # The EnergyPlus timestamp identifies the simulated interval. The
+            # dashboard timestamp identifies when that fresh result reached
+            # the live control loop, so repeated demo evaluations stay visibly
+            # live even though they compare the same occupied interval.
+            timestamp=datetime.now(UTC),
             zone=zone,
             temperature_c=round(self.temperature_c, 2),
             humidity_pct=round(self.humidity_pct, 2),
@@ -534,10 +538,43 @@ class EnergyPlusSubprocessBackend:
         self._frame_index = 0
         self._latest_frame = None
         self._run_subprocess()
+        with self._frames_lock:
+            self._frame_index = self._representative_frame_index()
         telemetry = self.latest_telemetry()
         if telemetry is None:
             raise RuntimeError("EnergyPlus cycle completed without telemetry")
         return telemetry
+
+    def _representative_frame_index(self) -> int:
+        """Return an occupied midday record from the warmest available period.
+
+        EnergyPlus emits overnight winter design-day records first. Showing
+        one after every generated-IDF evaluation would trigger artificial
+        comfort recovery instead of revealing the policy's normal occupied
+        operation.
+        """
+        if not self._frames:
+            return 0
+        candidates = [
+            (index, frame)
+            for index, frame in enumerate(self._frames)
+            if frame.occupancy_pct > 0 and 10 <= frame.timestamp.hour <= 15
+        ]
+        if not candidates:
+            candidates = [
+                (index, frame)
+                for index, frame in enumerate(self._frames)
+                if 10 <= frame.timestamp.hour <= 15
+            ]
+        if not candidates:
+            return min(len(self._frames) - 1, len(self._frames) // 2)
+        return min(
+            candidates,
+            key=lambda item: (
+                0 if item[1].timestamp.month in {6, 7, 8} else 1,
+                abs(item[1].timestamp.hour - 13),
+            ),
+        )[0]
 
     def wait_for_telemetry(self, timeout_seconds: float | None = None) -> BuildingTelemetry | None:
         if not self._frames_ready.wait(timeout_seconds):

@@ -37,7 +37,9 @@ class Settings(BaseSettings):
     autonomous_min_comfort_pct: float = 90.0
 
     simulation_enabled: bool = True
-    simulation_interval_seconds: float = 5.0
+    # A real EnergyPlus cycle is compute-intensive; leave a short idle gap so
+    # the dashboard remains responsive on a laptop during the live demo.
+    simulation_interval_seconds: float = 12.0
 
     energyplus_executable: str | None = None
     energyplus_idf_path: Path | None = None
