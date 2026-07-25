@@ -6,6 +6,7 @@ from app.schemas.telemetry import DecisionRequest, DecisionResult, SafetyValidat
 from app.services.decision_engine import decision_engine
 from app.services.control_gateway import apply_safe_setpoints
 from app.services.self_healing import self_healing_loop
+from app.services.automation_memory import automation_memory
 from app.agents.mcp_context import MCPBuildingContext
 from app.simulation.state import building_state
 
@@ -16,7 +17,11 @@ def _decision(request: DecisionRequest) -> DecisionResult:
     telemetry = building_state.get_latest_telemetry()
     if telemetry is None:
         raise HTTPException(status_code=409, detail="Telemetry is required before a policy can be selected")
-    return decision_engine.decide(telemetry, request.carbon_intensity_gco2_kwh)
+    return decision_engine.decide(
+        telemetry,
+        request.carbon_intensity_gco2_kwh,
+        automation_memory.policy_performance(),
+    )
 
 
 @router.post("/recommend", response_model=DecisionResult)
@@ -29,7 +34,11 @@ def recommend_policy(request: DecisionRequest = DecisionRequest()) -> DecisionRe
 def recommend_policy_from_mcp(request: DecisionRequest = DecisionRequest()) -> DecisionResult:
     """Use MCP telemetry resources as the specialized-agents context interface."""
     try:
-        return decision_engine.decide_from_mcp(MCPBuildingContext(), request.carbon_intensity_gco2_kwh)
+        return decision_engine.decide_from_mcp(
+            MCPBuildingContext(),
+            request.carbon_intensity_gco2_kwh,
+            automation_memory.policy_performance(),
+        )
     except Exception as exc:
         raise HTTPException(status_code=409, detail="MCP telemetry is required before a policy can be selected") from exc
 

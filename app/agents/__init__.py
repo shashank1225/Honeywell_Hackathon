@@ -1,1 +1,1 @@
-"""Specialized agents — Comfort, Energy, Carbon (Phase 3)."""
+"""Specialized agents — Comfort, Energy, Occupancy, and Carbon."""

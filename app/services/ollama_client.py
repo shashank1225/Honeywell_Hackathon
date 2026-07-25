@@ -38,6 +38,34 @@ class LLMPolicyRecommendation:
 class OllamaStrategicClient:
     """Calls a local open-source model with a bounded JSON-only prompt."""
 
+    def warm(self) -> None:
+        """Load the local model in the background so the first operator request is fast."""
+        settings = get_settings()
+        if not settings.llm_enabled:
+            return
+        request = Request(
+            f"{settings.llm_base_url.rstrip('/')}/api/generate",
+            data=json.dumps(
+                {
+                    "model": settings.llm_model,
+                    "prompt": "Respond with {}.",
+                    "stream": False,
+                    "format": "json",
+                    "keep_alive": settings.llm_keep_alive,
+                    "options": {"temperature": 0, "num_predict": 4, "num_ctx": settings.llm_context_tokens},
+                }
+            ).encode("utf-8"),
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        try:
+            with urlopen(request, timeout=settings.llm_timeout_seconds):
+                pass
+        except (URLError, TimeoutError, OSError):
+            # A local model is optional for startup. The strategic worker will
+            # retain its deterministic fallback if Ollama is unavailable.
+            return
+
     def recommend(self, goal: StrategicGoal, summary: TelemetryWindowSummary) -> LLMPolicyRecommendation:
         settings = get_settings()
         if not settings.llm_enabled:
@@ -45,7 +73,20 @@ class OllamaStrategicClient:
         prompt = PROMPT_TEMPLATE.format(goal=goal.objective.value, target_percent=goal.target_percent, **summary.model_dump())
         request = Request(
             f"{settings.llm_base_url.rstrip('/')}/api/generate",
-            data=json.dumps({"model": settings.llm_model, "prompt": prompt, "stream": False, "format": "json", "options": {"temperature": 0}}).encode("utf-8"),
+            data=json.dumps(
+                {
+                    "model": settings.llm_model,
+                    "prompt": prompt,
+                    "stream": False,
+                    "format": "json",
+                    "keep_alive": settings.llm_keep_alive,
+                    "options": {
+                        "temperature": 0,
+                        "num_predict": settings.llm_max_tokens,
+                        "num_ctx": settings.llm_context_tokens,
+                    },
+                }
+            ).encode("utf-8"),
             headers={"Content-Type": "application/json"},
             method="POST",
         )

@@ -104,6 +104,18 @@ def adjust_ventilation(zone: str, ventilation_rate_pct: float) -> str:
     )
 
 
+@mcp.tool()
+def adjust_lighting(zone: str, lighting_level_pct: float) -> str:
+    """Adjust interior-lighting schedule intensity from 0 to 100 percent."""
+    if not 0.0 <= lighting_level_pct <= 100.0:
+        return json.dumps({"status": "rejected", "reason": "lighting_level_pct must be between 0 and 100"})
+    current = building_state.get_setpoints()
+    result = apply_safe_setpoints(building_state, current.model_copy(update={"lighting_level_pct": lighting_level_pct}))
+    if not result.accepted or result.safe_setpoints is None:
+        return json.dumps({"status": "rejected", "reason": result.reasons})
+    return json.dumps({"status": "accepted", "zone": zone, "setpoints": result.safe_setpoints.model_dump()})
+
+
 def main() -> None:
     """Run the MCP server over SSE for local development."""
     mcp.run(transport="sse")

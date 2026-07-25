@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import threading
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 from app.schemas.telemetry import (
     BuildingTelemetry,
@@ -61,8 +61,28 @@ class AutonomousGoalManagementSystem:
     def create(self, request: GoalRequest, telemetry: BuildingTelemetry, source: GoalSource = GoalSource.HUMAN) -> ManagedGoal:
         assessment = self._negotiator.assess(request, telemetry)
         status = GoalStatus.ACCEPTED if assessment.feasible else GoalStatus.NEGOTIATING
-        goal = ManagedGoal(source=source, status=status, request=request, assessment=assessment, created_at=datetime.now(UTC))
         with self._lock:
+            higher_priority = next(
+                (
+                    existing
+                    for existing in self._goals
+                    if existing.status == GoalStatus.ACCEPTED
+                    and existing.request.objective != request.objective
+                    and existing.request.priority > request.priority
+                ),
+                None,
+            )
+            if higher_priority is not None:
+                status = GoalStatus.NEGOTIATING
+                assessment = assessment.model_copy(
+                    update={
+                        "rationale": (
+                            f"{assessment.rationale} Deferred behind higher-priority "
+                            f"{higher_priority.request.objective.value.replace('_', ' ')} goal."
+                        )
+                    }
+                )
+            goal = ManagedGoal(source=source, status=status, request=request, assessment=assessment, created_at=datetime.now(UTC))
             self._goals.append(goal)
         return goal
 
@@ -73,7 +93,29 @@ class AutonomousGoalManagementSystem:
             request = GoalRequest(objective=GoalType.COMFORT, target_percent=12, priority=85)
         else:
             return None
+        with self._lock:
+            duplicate = next(
+                (
+                    goal
+                    for goal in reversed(self._goals)
+                    if goal.source == GoalSource.AUTONOMOUS
+                    and goal.status == GoalStatus.ACCEPTED
+                    and goal.request.objective == request.objective
+                    and datetime.now(UTC) - goal.created_at < timedelta(minutes=30)
+                ),
+                None,
+            )
+        if duplicate is not None:
+            return None
         return self.create(request, telemetry, source=GoalSource.AUTONOMOUS)
+
+    def active_goal(self) -> ManagedGoal | None:
+        """Return the highest-priority feasible goal for slow-loop reasoning."""
+        with self._lock:
+            accepted = [goal.model_copy() for goal in self._goals if goal.status == GoalStatus.ACCEPTED]
+        if not accepted:
+            return None
+        return max(accepted, key=lambda goal: (goal.request.priority, goal.created_at))
 
     def list(self) -> list[ManagedGoal]:
         with self._lock:

@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 
 from app.schemas.telemetry import BuildingTelemetry, OperatingPolicy
 from app.services.autonomous_control import AutonomousControlLoop
+from app.services.goal_management import AutonomousGoalManagementSystem
 from app.services.policy_handoff import PolicyHandoff, PolicyHandoffQueue
 from app.simulation.state import BuildingState
 
@@ -22,6 +23,8 @@ def test_autonomous_loop_selects_energy_policy_and_changes_next_cycle_setpoints(
     assert status.active_policy == OperatingPolicy.ENERGY_SAVER
     assert state.get_setpoints().hvac_temperature_c == 24.0
     assert state.get_setpoints().ventilation_rate_pct == 35.0
+    assert len(status.agent_recommendations) == 4
+    assert status.decision_confidence > 0
 
 
 def test_autonomous_loop_activates_fallback_after_measured_comfort_shortfall():
@@ -62,3 +65,26 @@ def test_rejected_llm_policy_activates_safe_balanced_fallback():
     assert state.get_setpoints().hvac_temperature_c == 22.0
     assert state.get_setpoints().ventilation_rate_pct == 50.0
     assert "safe balanced fallback activated" in status.last_action
+
+
+def test_major_telemetry_transition_creates_one_proactive_goal_and_queues_slow_reasoning():
+    class RecordingStrategicQueue:
+        def __init__(self) -> None:
+            self.goals = []
+
+        def submit(self, goal):
+            self.goals.append(goal)
+
+    queue = RecordingStrategicQueue()
+    loop = AutonomousControlLoop(
+        state=BuildingState(),
+        goals=AutonomousGoalManagementSystem(),
+        strategic_queue=queue,
+    )
+
+    status = loop.process(telemetry(power_kw=8.0))
+    loop.process(telemetry(power_kw=8.0))
+
+    assert status.active_goal is not None
+    assert "Major telemetry transition" in status.strategic_update
+    assert len(queue.goals) == 1

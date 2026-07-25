@@ -37,13 +37,34 @@ class EnergyAgent:
     name: str = "energy"
 
     def recommend(self, telemetry: BuildingTelemetry) -> AgentRecommendation:
-        score = min(1.0, max(0.0, telemetry.power_kw / 10.0))
-        policy = OperatingPolicy.ENERGY_SAVER if score >= 0.55 else OperatingPolicy.BALANCED
+        score = min(1.0, max(0.0, telemetry.power_kw / 7.0))
+        policy = OperatingPolicy.ENERGY_SAVER if telemetry.power_kw >= 3.5 else OperatingPolicy.BALANCED
         return AgentRecommendation(
             agent=self.name,
             policy=policy,
             score=round(score, 2),
             rationale=f"Current building demand is {telemetry.power_kw:.1f} kW.",
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class OccupancyAgent:
+    """Matches operating intensity to the live occupancy signal."""
+
+    name: str = "occupancy"
+
+    def recommend(self, telemetry: BuildingTelemetry) -> AgentRecommendation:
+        low_occupancy = telemetry.occupancy_pct <= 20.0
+        score = min(1.0, max(0.0, (35.0 - telemetry.occupancy_pct) / 35.0))
+        policy = OperatingPolicy.ENERGY_SAVER if low_occupancy else OperatingPolicy.BALANCED
+        return AgentRecommendation(
+            agent=self.name,
+            policy=policy,
+            score=round(score, 2),
+            rationale=(
+                f"Estimated occupancy is {telemetry.occupancy_pct:.0f}% "
+                f"({'low demand supports setback' if low_occupancy else 'normal occupancy requires balanced service'})."
+            ),
         )
 
 

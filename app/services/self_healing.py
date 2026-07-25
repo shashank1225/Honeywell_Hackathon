@@ -62,6 +62,7 @@ class SelfHealingLoop:
         fallback = Setpoints(
             hvac_temperature_c=min(22.0, max(16.0, current_setpoints.hvac_temperature_c - 2.0)),
             ventilation_rate_pct=min(100.0, current_setpoints.ventilation_rate_pct + 25.0),
+            lighting_level_pct=current_setpoints.lighting_level_pct,
         )
         validation = self._sentinel.validate(current_setpoints, fallback, emergency=True)
         if validation.accepted and validation.safe_setpoints is not None:

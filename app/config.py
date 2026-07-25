@@ -24,10 +24,14 @@ class Settings(BaseSettings):
     kafka_consumer_group: str = "aabos-telemetry-processor"
     telemetry_window_samples: int = 12
     strategic_worker_enabled: bool = True
+    strategic_interval_minutes: int = 30
     llm_enabled: bool = True
     llm_base_url: str = "http://127.0.0.1:11434"
     llm_model: str = "llama3.2:3b"
     llm_timeout_seconds: float = 60.0
+    llm_keep_alive: str = "30m"
+    llm_max_tokens: int = 80
+    llm_context_tokens: int = 2048
     autonomous_control_enabled: bool = True
     autonomous_power_threshold_kw: float = 3.5
     autonomous_min_comfort_pct: float = 90.0

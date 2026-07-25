@@ -21,6 +21,7 @@ class Setpoints(BaseModel):
 
     hvac_temperature_c: float = Field(default=22.0, ge=16.0, le=30.0)
     ventilation_rate_pct: float = Field(default=50.0, ge=0.0, le=100.0)
+    lighting_level_pct: float = Field(default=100.0, ge=0.0, le=100.0)
 
 
 class OperatingPolicy(StrEnum):
@@ -93,6 +94,10 @@ class AutomationEpisode(BaseModel):
     confidence: float = Field(ge=0.0, le=1.0)
     baseline_energy_kwh: float = Field(default=0.0, ge=0.0)
     energy_savings_pct: float = Field(default=0.0)
+    temperature_c: float | None = None
+    humidity_pct: float | None = None
+    occupancy_pct: float | None = None
+    counterfactual: "CounterfactualEvaluation | None" = None
 
 
 class PolicyPerformance(BaseModel):
@@ -115,6 +120,27 @@ class EnergySavingsReport(BaseModel):
     energy_savings_kwh: float = 0.0
     energy_savings_pct: float = 0.0
     samples: int = 0
+
+
+class CounterfactualOutcome(BaseModel):
+    """A non-actuating projected outcome for one operating policy."""
+
+    policy: OperatingPolicy
+    projected_power_kw: float = Field(ge=0.0)
+    projected_comfort_pct: float = Field(ge=0.0, le=100.0)
+    energy_delta_pct: float
+    comfort_delta_pct: float
+    rationale: str
+
+
+class CounterfactualEvaluation(BaseModel):
+    """Transparent policy comparison derived from the current telemetry state."""
+
+    timestamp: datetime
+    selected_policy: OperatingPolicy
+    selected_outcome: CounterfactualOutcome
+    alternatives: list[CounterfactualOutcome]
+    rationale: str
 
 
 class TelemetryWindowSummary(BaseModel):

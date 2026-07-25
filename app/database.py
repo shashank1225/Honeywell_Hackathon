@@ -17,9 +17,11 @@ def get_engine() -> Engine:
     global _engine
     if _engine is None:
         settings = get_settings()
+        connect_args = {"connect_timeout": 2} if settings.database_url.startswith("postgresql") else {}
         _engine = create_engine(
             settings.database_url,
             pool_pre_ping=True,
+            connect_args=connect_args,
         )
     return _engine
 

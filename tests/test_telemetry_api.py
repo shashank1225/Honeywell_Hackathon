@@ -41,11 +41,14 @@ def test_update_setpoints(client):
 
     hvac_response = test_client.put("/setpoints/hvac?temperature_c=21.5")
     vent_response = test_client.put("/setpoints/ventilation?ventilation_rate_pct=65")
+    lighting_response = test_client.put("/setpoints/lighting?lighting_level_pct=75")
 
     assert hvac_response.status_code == 200
     assert vent_response.status_code == 200
+    assert lighting_response.status_code == 200
     assert state.get_setpoints().hvac_temperature_c == 21.5
     assert state.get_setpoints().ventilation_rate_pct == 65.0
+    assert state.get_setpoints().lighting_level_pct == 75.0
 
 
 def test_reject_out_of_range_hvac(client):

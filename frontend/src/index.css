@@ -110,6 +110,19 @@ h2 {
   border-top: 1px solid #e2e8f0;
 }
 
+.agent-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.45rem 0.75rem;
+  margin-top: 0.85rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.15);
+}
+
+.agent-list .timestamp {
+  margin: 0;
+}
+
 @media (max-width: 640px) {
   .strategy-form { grid-template-columns: 1fr; }
 }

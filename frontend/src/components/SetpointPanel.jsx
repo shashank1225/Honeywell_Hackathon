@@ -3,6 +3,7 @@ import { useState } from "react";
 export default function SetpointPanel({ setpoints, onUpdated }) {
   const [temperature, setTemperature] = useState(22);
   const [ventilation, setVentilation] = useState(50);
+  const [lighting, setLighting] = useState(100);
   const [message, setMessage] = useState("");
 
   async function submitHvac(event) {
@@ -29,6 +30,17 @@ export default function SetpointPanel({ setpoints, onUpdated }) {
       onUpdated();
     } else {
       setMessage("Failed to update ventilation setpoint");
+    }
+  }
+
+  async function submitLighting(event) {
+    event.preventDefault();
+    const response = await fetch(`/setpoints/lighting?lighting_level_pct=${lighting}`, { method: "PUT" });
+    if (response.ok) {
+      setMessage("Lighting schedule updated");
+      onUpdated();
+    } else {
+      setMessage("Failed to update lighting schedule");
     }
   }
 
@@ -65,12 +77,26 @@ export default function SetpointPanel({ setpoints, onUpdated }) {
           />
           <button type="submit">Apply Ventilation</button>
         </form>
+
+        <form onSubmit={submitLighting} className="setpoint-form">
+          <label htmlFor="lighting">Lighting Level (%)</label>
+          <input
+            id="lighting"
+            type="number"
+            min="0"
+            max="100"
+            step="1"
+            value={lighting}
+            onChange={(event) => setLighting(Number(event.target.value))}
+          />
+          <button type="submit">Apply Lighting</button>
+        </form>
       </div>
 
       {setpoints && (
         <p className="current-setpoints">
           Active setpoints: {setpoints.hvac_temperature_c} °C ·{" "}
-          {setpoints.ventilation_rate_pct}% ventilation
+          {setpoints.ventilation_rate_pct}% ventilation · {setpoints.lighting_level_pct}% lighting
         </p>
       )}
       {message && <p className="message">{message}</p>}

@@ -1,6 +1,6 @@
 import json
 
-from app.mcp.server import adjust_ventilation, current_setpoints, current_telemetry, set_hvac_temperature
+from app.mcp.server import adjust_lighting, adjust_ventilation, current_setpoints, current_telemetry, set_hvac_temperature
 from app.simulation.energyplus_runner import EnergyPlusRunner
 from app.simulation.state import BuildingState
 from tests.fakes import FakeEnergyPlusBackend
@@ -26,6 +26,10 @@ def test_mcp_resources_and_tools_use_shared_state(monkeypatch):
     ventilation_result = json.loads(adjust_ventilation("main", 75.0))
     assert ventilation_result["status"] == "accepted"
     assert ventilation_result["setpoints"]["ventilation_rate_pct"] == 75.0
+
+    lighting_result = json.loads(adjust_lighting("main", 75.0))
+    assert lighting_result["status"] == "accepted"
+    assert lighting_result["setpoints"]["lighting_level_pct"] == 75.0
 
 
 def test_mcp_tool_rejects_invalid_temperature(monkeypatch):

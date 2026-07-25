@@ -33,6 +33,9 @@ class StrategicWorkQueue:
         self._running.set()
         self._thread = threading.Thread(target=self._run, name="aabos-strategic-worker", daemon=True)
         self._thread.start()
+        warm = getattr(self._llm_client, "warm", None)
+        if callable(warm):
+            threading.Thread(target=warm, name="aabos-ollama-warmup", daemon=True).start()
 
     def stop(self) -> None:
         self._running.clear()
