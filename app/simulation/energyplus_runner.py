@@ -110,7 +110,7 @@ class EnergyPlusSubprocessBackend:
             "-w",
             str(self._weather_path),
             "-d",
-            str(self._output_dir),
+            str(self._output_dir.resolve()),
             str(self._runtime_idf_path),
         ]
 
@@ -130,7 +130,7 @@ class EnergyPlusSubprocessBackend:
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             text=True,
-            cwd=self._output_dir,
+            cwd=self._output_dir.resolve(),
         )
         stdout_thread = threading.Thread(target=self._drain_stream, args=(self._process.stdout, logging.INFO), daemon=True)
         stderr_thread = threading.Thread(target=self._drain_stream, args=(self._process.stderr, logging.WARNING), daemon=True)
@@ -506,15 +506,7 @@ class EnergyPlusSubprocessBackend:
 
     def start(self) -> None:
         self._validate_configuration()
-        if self._reader_thread is not None and self._reader_thread.is_alive():
-            return
-        self._frames_ready.clear()
-        self._frames = []
-        self._frame_index = 0
-        self._latest_frame = None
         self.publish_setpoints(Setpoints())
-        self._reader_thread = threading.Thread(target=self._run_subprocess, daemon=True)
-        self._reader_thread.start()
 
     def stop(self) -> None:
         if self._process is not None and self._process.poll() is None:
@@ -529,6 +521,20 @@ class EnergyPlusSubprocessBackend:
 
     def publish_setpoints(self, setpoints: Setpoints) -> None:
         self._runtime_idf_path = self._idf_writer.write(setpoints)
+
+    def run_cycle(self, setpoints: Setpoints) -> BuildingTelemetry:
+        """Run a fresh EnergyPlus cycle against the latest approved IDF."""
+        self._validate_configuration()
+        self.publish_setpoints(setpoints)
+        self._frames_ready.clear()
+        self._frames = []
+        self._frame_index = 0
+        self._latest_frame = None
+        self._run_subprocess()
+        telemetry = self.latest_telemetry()
+        if telemetry is None:
+            raise RuntimeError("EnergyPlus cycle completed without telemetry")
+        return telemetry
 
     def wait_for_telemetry(self, timeout_seconds: float | None = None) -> BuildingTelemetry | None:
         if not self._frames_ready.wait(timeout_seconds):
@@ -563,6 +569,7 @@ class EnergyPlusRunner:
         self._running = False
         self._task: asyncio.Task[None] | None = None
         self._backend = backend or EnergyPlusSubprocessBackend(zone=zone)
+        self._telemetry_handler = None
 
     @property
     def is_running(self) -> bool:
@@ -571,10 +578,14 @@ class EnergyPlusRunner:
     def tick_once(self) -> BuildingTelemetry:
         """Fetch one telemetry sample from EnergyPlus and publish it to shared state and Kafka."""
         setpoints = self._state.get_setpoints()
-        self._backend.publish_setpoints(setpoints)
-        telemetry = self._backend.wait_for_telemetry(timeout_seconds=self._interval_seconds)
-        if telemetry is None:
-            telemetry = self._backend.latest_telemetry()
+        run_cycle = getattr(self._backend, "run_cycle", None)
+        if callable(run_cycle):
+            telemetry = run_cycle(setpoints)
+        else:
+            self._backend.publish_setpoints(setpoints)
+            telemetry = self._backend.wait_for_telemetry(timeout_seconds=self._interval_seconds)
+            if telemetry is None:
+                telemetry = self._backend.latest_telemetry()
         if telemetry is None:
             raise RuntimeError(
                 "EnergyPlus telemetry is unavailable. Configure ENERGYPLUS_EXECUTABLE, "
@@ -585,7 +596,13 @@ class EnergyPlusRunner:
             self._state.publish_telemetry(telemetry)
             energy_efficiency_tracker.record(telemetry, self._interval_seconds)
             telemetry_window_aggregator.add(telemetry)
+        if self._telemetry_handler is not None:
+            self._telemetry_handler(telemetry)
         return telemetry
+
+    def set_telemetry_handler(self, handler) -> None:
+        """Attach an autonomous supervisory callback; never an actuator callback."""
+        self._telemetry_handler = handler
 
     def _publish_to_kafka(self, telemetry: BuildingTelemetry) -> bool:
         payload = json.dumps(telemetry.model_dump(mode="json"))

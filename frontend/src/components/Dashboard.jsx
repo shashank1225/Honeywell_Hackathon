@@ -5,6 +5,7 @@ import StrategyPanel from "./StrategyPanel.jsx";
 import SelfHealingPanel from "./SelfHealingPanel.jsx";
 import GoalsPanel from "./GoalsPanel.jsx";
 import EnergySavingsPanel from "./EnergySavingsPanel.jsx";
+import AutonomyPanel from "./AutonomyPanel.jsx";
 
 const WS_URL = `${window.location.protocol === "https:" ? "wss" : "ws"}://${window.location.host}/telemetry/stream`;
 
@@ -81,6 +82,7 @@ export default function Dashboard() {
       <SelfHealingPanel />
       <GoalsPanel />
       <EnergySavingsPanel />
+      <AutonomyPanel />
     </main>
   );
 }

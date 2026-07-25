@@ -24,6 +24,9 @@ class Settings(BaseSettings):
     kafka_consumer_group: str = "aabos-telemetry-processor"
     telemetry_window_samples: int = 12
     strategic_worker_enabled: bool = True
+    autonomous_control_enabled: bool = True
+    autonomous_power_threshold_kw: float = 3.5
+    autonomous_min_comfort_pct: float = 90.0
 
     simulation_enabled: bool = True
     simulation_interval_seconds: float = 5.0

@@ -10,6 +10,7 @@ from app.kafka.telemetry_consumer import TelemetryKafkaConsumer
 from app.services.energy_efficiency import energy_efficiency_tracker
 from app.services.strategic_worker import strategic_work_queue
 from app.services.telemetry_aggregation import telemetry_window_aggregator
+from app.services.autonomous_control import autonomous_control_loop
 from app.simulation.energyplus_runner import get_energyplus_runner
 from app.simulation.state import building_state
 
@@ -30,6 +31,7 @@ async def lifespan(app: FastAPI):
         strategic_work_queue.start()
     if settings.simulation_enabled:
         runner = get_energyplus_runner()
+        runner.set_telemetry_handler(autonomous_control_loop.process)
         await runner.start()
     yield
     if runner is not None:
