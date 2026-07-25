@@ -42,6 +42,10 @@ class StrategicWorkQueue:
             self._thread = None
 
     def submit(self, goal: StrategicGoal) -> StrategicJob:
+        # Startup normally launches this worker in the FastAPI lifespan, but
+        # submissions must remain self-healing if that worker was stopped or
+        # a local reload raced the lifecycle hook.
+        self.start()
         job = StrategicJob(goal=goal, submitted_at=datetime.now(UTC))
         with self._lock:
             self._jobs[job.id] = job

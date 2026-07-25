@@ -29,9 +29,12 @@ export default function StrategyPanel() {
         setLlmUsed(job.llm_used);
         return;
       }
-      if (job.status === "failed") break;
+      if (job.status === "failed") {
+        setError(job.error || "Strategic planning failed before a policy was produced.");
+        return;
+      }
     }
-    setError("Strategic LLM job did not complete. Check that Ollama is running.");
+    setError("Strategic planning is still running. The local model may be loading; please wait and try again.");
   }
 
   return (

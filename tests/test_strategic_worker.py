@@ -15,7 +15,6 @@ def test_strategic_work_runs_asynchronously_from_aggregated_context():
             return LLMPolicyRecommendation(policy=OperatingPolicy.ENERGY_SAVER, rationale="Measured demand warrants savings.")
 
     worker = StrategicWorkQueue(aggregator=aggregator, llm_client=FakeLLM())
-    worker.start()
     try:
         job = worker.submit(StrategicGoal(objective=GoalType.ENERGY_REDUCTION, target_percent=10))
         for _ in range(20):
