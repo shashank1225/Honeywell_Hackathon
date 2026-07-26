@@ -167,7 +167,7 @@ docker-compose.yml        Kafka, ZooKeeper, PostgreSQL services
 
 ```bash
 git clone <YOUR_REPOSITORY_URL>
-cd Honeeywell_hackathon
+cd Honeywell_Hackathon
 
 python3 -m venv .venv
 source .venv/bin/activate              # Windows PowerShell: .venv\Scripts\Activate.ps1
@@ -223,7 +223,7 @@ ENERGYPLUS_OUTPUT_DIR=var/energyplus \
 Open a second terminal:
 
 ```bash
-cd Honeeywell_hackathon/frontend
+cd Honeywell_Hackathon/frontend
 npm run dev
 ```
 
