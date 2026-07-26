@@ -6,6 +6,9 @@ included as concise supplementary evidence for parts of the same live run that
 could not be shown without exceeding that limit. They do not replace the live
 closed-loop demonstration.
 
+If GitHub's in-browser video player is unavailable, the same recording can be
+viewed through this [Google Drive backup link](https://drive.google.com/file/d/1udj8TLFqbjA7OearLRxWjxL0hL-gM46M/view?usp=sharing).
+
 ## What the screenshots show
 
 1. **`01_llm_policy_accepted.png`** — the local Llama 3.2 recommendation is
