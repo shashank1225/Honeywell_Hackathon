@@ -22,10 +22,14 @@ export default function Dashboard() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    fetch("/setpoints")
-      .then((response) => response.json())
-      .then(setSetpoints)
-      .catch(() => setError("Unable to load setpoints"));
+    const loadSetpoints = () => {
+      fetch("/setpoints")
+        .then((response) => response.json())
+        .then(setSetpoints)
+        .catch(() => setError("Unable to load setpoints"));
+    };
+    loadSetpoints();
+    const setpointRefresh = window.setInterval(loadSetpoints, 2500);
 
     let socket;
     let reconnectTimer;
@@ -56,6 +60,7 @@ export default function Dashboard() {
 
     return () => {
       disposed = true;
+      window.clearInterval(setpointRefresh);
       window.clearTimeout(reconnectTimer);
       socket?.close();
     };
